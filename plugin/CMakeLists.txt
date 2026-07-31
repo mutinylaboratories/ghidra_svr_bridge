@@ -1,7 +1,13 @@
 cmake_minimum_required(VERSION 3.24)
 project(binja-ghidra CXX)
 
-set(CMAKE_CXX_STANDARD 17)
+# C++20 is required by the Binary Ninja dev-channel API: binaryninjaapi.h
+# includes <span> unconditionally and uses std::span in a class declaration,
+# with no __cplusplus guard or opt-out.  The BN API's own targets already set
+# CXX_STANDARD 20, so building our targets at 17 also left a static library
+# compiled at gnu++20 linking into gnu++17 objects — a mixed-standard ODR/ABI
+# mismatch MSVC does not support.  Matching at 20 fixes both.
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC OFF)
