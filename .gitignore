@@ -1,0 +1,31 @@
+# Build outputs
+bridge/build/
+bridge/bin/
+plugin/build/
+plugin/build-stub/
+plugin/*.log
+
+# Gradle
+bridge/.gradle/
+
+# Ghidra — downloaded at CMake configure time by FetchGhidra.cmake
+ghidra/
+
+# Qt — compiled output (built by the qt-build submodule)
+qt/
+
+# Local environment — each developer sets their own Ghidra path
+bridge/gradle.properties
+
+# Claude Code settings
+.claude/
+
+# Editor settings
+.vscode/
+
+# Built bridge jar staged into the server package by build scripts
+server-package/*.jar
+
+# Windows
+Thumbs.db
+Desktop.ini

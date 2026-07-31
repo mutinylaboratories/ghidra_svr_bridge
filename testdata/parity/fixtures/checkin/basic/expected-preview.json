@@ -1,0 +1,39 @@
+{
+  "_comment": "Checkin request body buildCheckinJson must produce from the edits in edits.json. Arrays are compared order-insensitively; type_name/ret_type fields are compared after normalizeTypeName (RULES.md).",
+  "symbols": [
+    {"key": 1, "name": "main_entry"},
+    {"va": "0x400110", "name": "new_label", "sym_type": 0}
+  ],
+  "comments": [
+    {"va": "0x400010", "eol": "updated size note", "key": "0x400010"},
+    {"va": "0x400020", "eol": "fresh note"}
+  ],
+  "equate_renames": [
+    {"id": 42, "name": "BUFFER_MAX"}
+  ],
+  "equate_ref_adds": [],
+  "bookmark_changes": [
+    {"op": "add", "type": "Note", "addr": "0x400100", "category": "new", "comment": "added"},
+    {"op": "delete", "type": "Note", "addr": "0x400120", "category": "", "comment": ""}
+  ],
+  "param_renames": [],
+  "data_type_changes": [
+    {"op": "update", "kind": "struct", "name": "GPoint", "ghidra_id": 100, "size": 8,
+     "members": [
+       {"name": "x", "offset": 0, "size": 4, "type_name": "int32_t"},
+       {"name": "height", "offset": 4, "size": 4, "type_name": "int32_t"}
+     ]},
+    {"op": "add", "kind": "struct", "name": "BnStruct", "ghidra_id": 0, "size": 8,
+     "members": [
+       {"name": "a", "offset": 0, "size": 4, "type_name": "int32_t"},
+       {"name": "b", "offset": 4, "size": 4, "type_name": "int32_t"}
+     ]}
+  ],
+  "data_item_changes": [
+    {"op": "add", "addr": "0x400110", "type_name": "BnStruct"},
+    {"op": "delete", "addr": "0x400100", "type_name": ""}
+  ],
+  "func_sig_changes": [
+    {"key": 1, "ret_type": "uint64_t"}
+  ]
+}

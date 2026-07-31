@@ -1,0 +1,6 @@
+[submodule "binaryninja-api"]
+	path = binaryninja-api
+	url = https://github.com/Vector35/binaryninja-api.git
+[submodule "qt-build"]
+	path = qt-build
+	url = https://github.com/vector35/qt-build

@@ -1,0 +1,40 @@
+{
+  "_comment": "Canonical DB state after ProgramApplier applies expected-preview.json on top of baseline.json. DB keys/ids are identity, not content — comparators join func_flags to symbols per-document and resolve data-item types through the same document's data_types.",
+  "image_base": "0x400000",
+  "symbols": [
+    {"key": 1, "name": "main_entry", "addr": "0x400000", "type": 4, "source": 3, "ns": 0},
+    {"key": 2, "name": "new_label", "addr": "0x400110", "type": 0, "source": 3, "ns": 0}
+  ],
+  "comments": [
+    {"addr": "0x400010", "eol": "updated size note"},
+    {"addr": "0x400020", "eol": "fresh note"}
+  ],
+  "func_flags": [
+    {"key": 1, "thunk": false, "no_ret": false, "inline": false, "ret_type": "uint64_t"}
+  ],
+  "equates": [
+    {"id": 42, "name": "BUFFER_MAX", "value": 500,
+     "refs": [{"addr": "0x400010", "op_index": 1}]}
+  ],
+  "bookmarks": [
+    {"type": "Note", "addr": "0x400100", "category": "new", "comment": "added"}
+  ],
+  "parameters": [],
+  "data_types": [
+    {"id": 100, "kind": "struct", "name": "GPoint", "comment": "", "size": 8,
+     "members": [
+       {"offset": 0, "type_id": 0, "name": "x", "comment": "", "size": 4, "ordinal": 0, "type_name": "int32_t"},
+       {"offset": 4, "type_id": 0, "name": "height", "comment": "", "size": 4, "ordinal": 1, "type_name": "int32_t"}
+     ]},
+    {"id": 101, "kind": "struct", "name": "BnStruct", "comment": "", "size": 8,
+     "members": [
+       {"offset": 0, "type_id": 0, "name": "a", "comment": "", "size": 4, "ordinal": 0, "type_name": "int32_t"},
+       {"offset": 4, "type_id": 0, "name": "b", "comment": "", "size": 4, "ordinal": 1, "type_name": "int32_t"}
+     ]}
+  ],
+  "data_items": [
+    {"addr": "0x400110", "type_id": 101}
+  ],
+  "memory_blocks": [],
+  "xref_stats": {"from_count": 0, "to_count": 0}
+}

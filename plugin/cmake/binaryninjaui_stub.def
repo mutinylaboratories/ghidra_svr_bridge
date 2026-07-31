@@ -1,0 +1,39 @@
+LIBRARY binaryninjaui
+EXPORTS
+    ??0SidebarWidget@@QEAA@AEBVQString@@@Z
+    ??0SidebarWidgetType@@QEAA@AEBVQImage@@AEBVQString@@@Z
+    ??1SidebarWidget@@UEAA@XZ
+    ??1SidebarWidgetType@@UEAA@XZ
+    ?activeContext@UIContext@@SAPEAV1@XZ
+    ?addSidebarWidgetType@Sidebar@@SAXPEAVSidebarWidgetType@@@Z
+    ?allContexts@UIContext@@SA?AV?$set@PEAVUIContext@@U?$less@PEAVUIContext@@@std@@V?$allocator@PEAVUIContext@@@3@@std@@XZ DATA
+    ?alwaysShowTabs@SidebarWidgetType@@UEBA_NXZ
+    ?canUseAsPane@SidebarWidgetType@@UEBA_NPEAVSplitPaneWidget@@V?$Ref@VBinaryView@BinaryNinja@@@BinaryNinja@@@Z
+    ?closing@SidebarWidget@@UEAAXXZ
+    ?contentClassifier@SidebarWidgetType@@UEAAPEAVSidebarContentClassifier@@PEAVViewFrame@@V?$Ref@VBinaryView@BinaryNinja@@@BinaryNinja@@@Z
+    ?contextForWidget@UIContext@@SAPEAV1@PEAVQWidget@@@Z
+    ?contextSensitivity@SidebarWidgetType@@UEBA?AW4SidebarContextSensitivity@@XZ
+    ?createInvalidContextWidget@SidebarWidgetType@@UEAAPEAVSidebarWidget@@XZ
+    ?createPane@SidebarWidgetType@@UEAAPEAVPane@@PEAVSplitPaneWidget@@V?$Ref@VBinaryView@BinaryNinja@@@BinaryNinja@@@Z
+    ?deactivateOnLastTabClose@SidebarWidgetType@@UEBA_NXZ
+    ?defaultIconVisibility@SidebarWidgetType@@UEBA?AW4SidebarIconVisibility@@XZ
+    ?defaultLocation@SidebarWidgetType@@UEBA?AW4SidebarWidgetLocation@@XZ
+    ?focus@SidebarWidget@@UEAAXXZ
+    ?focusHeaderWidget@SidebarWidgetType@@UEBA_NXZ
+    ?getCurrentBinaryView@ViewFrame@@QEBA?AV?$Ref@VBinaryView@BinaryNinja@@@BinaryNinja@@XZ
+    ?headerWidget@SidebarWidget@@UEAAPEAVQWidget@@XZ
+    ?headerWidget@SidebarWidgetType@@UEAAPEAVQWidget@@PEAVSplitPaneWidget@@PEAVViewFrame@@V?$Ref@VBinaryView@BinaryNinja@@@BinaryNinja@@@Z
+    ?hideIfNoContent@SidebarWidgetType@@UEBA_NXZ
+    ?isInReferenceArea@SidebarWidgetType@@UEBA_NXZ
+    ?notifyFontChanged@SidebarWidget@@UEAAXXZ
+    ?notifyOffsetChanged@SidebarWidget@@UEAAX_K@Z
+    ?notifyQuiesce@SidebarWidget@@UEAAX_N@Z
+    ?notifyRefresh@SidebarWidget@@UEAAXXZ
+    ?notifyThemeChanged@SidebarWidget@@UEAAXXZ
+    ?notifyViewLocationChanged@SidebarWidget@@UEAAXPEAVView@@AEBVViewLocation@@@Z
+    ?noWidgetMessage@SidebarWidgetType@@UEBA?AVQString@@XZ
+    ?qt_metacall@SidebarWidget@@UEAAHW4Call@QMetaObject@@HPEAPEAX@Z
+    ?qt_metacast@SidebarWidget@@UEAAPEAXPEBD@Z
+    ?setPrimaryOrientation@SidebarWidget@@UEAAXW4Orientation@Qt@@@Z
+    ?staticMetaObject@SidebarWidget@@2UQMetaObject@@B DATA
+    ?tabStyle@SidebarWidgetType@@UEBAPEAVDockableTabStyle@@XZ

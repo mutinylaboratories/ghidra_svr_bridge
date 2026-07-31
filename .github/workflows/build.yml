@@ -1,0 +1,168 @@
+# CI build for every Binary Ninja channel the build scripts support.
+#
+# plugin (matrix: stable/dev x windows/linux/macos)
+#   Resolves the latest binaryninja-api commit for the channel exactly like
+#   build.bat / build.sh (--channel), then builds the full plugin plus the
+#   two test targets WITHOUT a Binary Ninja install or license — the
+#   Vector35/sample_plugin_cpp approach: the API's -DBN_ALLOW_STUBS=ON
+#   generates a stub binaryninjacore to fool the linker, UI symbols come
+#   from a generated import-lib stub on Windows / dynamic lookup on
+#   macOS+Linux, and everything resolves against the real libraries inside
+#   the Binary Ninja process at load time. Qt must not be NEWER than what
+#   BN ships (6.10.x) or the plugin's Qt imports won't resolve at load.
+#   Tests are compiled but NOT run — executing them needs a licensed core.
+#
+# bridge
+#   Builds the Java bridge jar against the pinned Ghidra release the project
+#   targets (newer Ghidra releases change server APIs, e.g. 12.1 removed
+#   GhidraServerHandle.INTERFACE_VERSION) and runs the full unit-test suite
+#   (the live-server E2E tier is excluded by default). The jar is uploaded
+#   as an artifact.
+
+name: build
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  plugin:
+    name: plugin (${{ matrix.channel }}, ${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+        channel: [stable, dev]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve latest ${{ matrix.channel }} binaryninja-api commit
+        id: bnapi
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          case "${{ matrix.channel }}" in
+            dev)
+              sha=$(gh api repos/Vector35/binaryninja-api/commits/dev --jq .sha)
+              ;;
+            stable)
+              tag=$(gh api repos/Vector35/binaryninja-api/releases/latest --jq .tag_name)
+              echo "stable release tag: $tag"
+              sha=$(gh api "repos/Vector35/binaryninja-api/commits/$tag" --jq .sha)
+              ;;
+          esac
+          if [[ ! "$sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "could not resolve the latest ${{ matrix.channel }} commit (got '$sha')"
+            exit 1
+          fi
+          echo "binaryninja-api ${{ matrix.channel }} commit: $sha"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      - name: Install Qt 6
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.10.*'
+          cache: true
+
+      - name: Configure
+        shell: bash
+        run: |
+          # Dummy GHIDRA_HOME skips FetchGhidra's ~400 MB configure-time
+          # download; it is only baked in as a local-mode fallback path.
+          # Universal macOS binary so both Intel and Apple Silicon BN load it.
+          extra=""
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            extra="-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64"
+          fi
+          mkdir -p "$RUNNER_TEMP/ghidra-none"
+          cmake -B plugin/build -S plugin \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBN_API_COMMIT_OVERRIDE=${{ steps.bnapi.outputs.sha }} \
+            -DBN_ALLOW_STUBS=ON \
+            -DGHIDRA_HOME="$RUNNER_TEMP/ghidra-none" \
+            -DQt6_DIR="$QT_ROOT_DIR/lib/cmake/Qt6" \
+            -DCMAKE_GTEST_DISCOVER_TESTS_DISCOVERY_MODE=PRE_TEST \
+            $extra
+
+      - name: Build against ${{ matrix.channel }} API
+        shell: bash
+        run: |
+          cmake --build plugin/build --config Release \
+            --target binja-ghidra \
+            --target binja-ghidra-tests --target binja-ghidra-bn-tests
+
+      - name: Upload plugin
+        uses: actions/upload-artifact@v4
+        with:
+          name: binja-ghidra-${{ matrix.channel }}-${{ matrix.os }}
+          path: |
+            plugin/build/binja-ghidra.dll
+            plugin/build/Release/binja-ghidra.dll
+            plugin/build/libbinja-ghidra.dylib
+            plugin/build/libbinja-ghidra.so
+          if-no-files-found: error
+
+  bridge:
+    name: bridge (java)
+    runs-on: ubuntu-latest
+    env:
+      # The Ghidra release the bridge targets — keep in sync with what your
+      # Ghidra Server runs. Newer releases change server-side APIs.
+      GHIDRA_TAG: Ghidra_12.0.4_build
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Resolve pinned Ghidra release
+        id: ghidra
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          url=$(gh api "repos/NationalSecurityAgency/ghidra/releases/tags/$GHIDRA_TAG" \
+                  --jq '[.assets[] | select(.name | endswith(".zip"))][0].browser_download_url')
+          echo "release: $GHIDRA_TAG ($url)"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Ghidra
+        id: ghidra-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/ghidra
+          key: ghidra-${{ env.GHIDRA_TAG }}
+
+      - name: Download Ghidra
+        if: steps.ghidra-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/ghidra
+          curl -fsSL -o /tmp/ghidra.zip "${{ steps.ghidra.outputs.url }}"
+          unzip -q /tmp/ghidra.zip -d ~/ghidra
+          rm /tmp/ghidra.zip
+
+      - name: Locate GHIDRA_HOME
+        id: home
+        run: echo "home=$(ls -d ~/ghidra/ghidra_*_PUBLIC | head -1)" >> "$GITHUB_OUTPUT"
+
+      - name: Build and test bridge
+        run: |
+          chmod +x bridge/gradlew
+          bridge/gradlew -p bridge build \
+            -PghidraHome="${{ steps.home.outputs.home }}" --console=plain
+
+      - name: Upload bridge jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: ghidra-bridge-jar
+          path: bridge/build/libs/ghidra-bridge-*.jar

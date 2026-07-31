@@ -1,0 +1,100 @@
+plugins {
+    id 'java'
+    id 'com.gradleup.shadow' version '8.3.6'
+}
+
+group = 'com.ghidra_svr'
+version = '0.1.1'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+repositories {
+    mavenCentral()
+}
+
+// Ghidra JARs are provided at runtime via classpath; we only need them to compile against.
+// Point ghidraHome at your Ghidra installation directory in gradle.properties.
+def ghidraJars = fileTree(dir: "${ghidraHome}", includes: [
+    'Ghidra/Framework/**/lib/*.jar',
+    // Features/Base provides HeadlessGhidraApplicationConfiguration for ProgramDB init,
+    // and the ProgramDB / DataTypeManager / SymbolTable / FunctionManager APIs we use
+    // for write-mode checkin operations.
+    'Ghidra/Features/Base/lib/*.jar'
+])
+
+dependencies {
+    implementation 'com.google.code.gson:gson:2.10.1'
+    compileOnly ghidraJars
+
+    // Unit tests — JUnit 5 + Ghidra DB jar for in-memory DBHandle
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testImplementation ghidraJars
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    // Live-server E2E: RMI unmarshalling of server responses needs the
+    // server-side stream handle classes (RemoteOutputBlockStreamHandle et al).
+    testRuntimeOnly fileTree(dir: "${ghidraHome}",
+        includes: ['Ghidra/Features/GhidraServer/lib/GhidraServer.jar'])
+}
+
+test {
+    // Default run: everything except the live-server E2E tier (test.bat --e2e).
+    useJUnitPlatform {
+        excludeTags 'e2e'
+    }
+    // Show individual test names in the build output
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+        exceptionFormat 'full'
+    }
+    // Round-trip tests boot a real Ghidra Application; they need the install path.
+    systemProperty 'ghidra.home', ghidraHome
+    // Cross-DB parity tests read the shared golden fixtures.
+    systemProperty 'parity.fixtures', "${projectDir}/../testdata/parity"
+}
+
+// Cross-DB parity tier only (shared goldens in testdata/parity).
+tasks.register('parityTest', Test) {
+    group = 'verification'
+    description = 'Runs the cross-database parity tests (@Tag parity).'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform { includeTags 'parity' }
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+        exceptionFormat 'full'
+    }
+    systemProperty 'ghidra.home', ghidraHome
+    systemProperty 'parity.fixtures', "${projectDir}/../testdata/parity"
+}
+
+// Live-server E2E tier — needs a runnable ghidraSvr in GHIDRA_HOME and
+// GHIDRA_E2E=1 in the environment (test.bat --e2e sets it).
+tasks.register('e2eTest', Test) {
+    group = 'verification'
+    description = 'Runs the live Ghidra-server E2E tests (@Tag e2e).'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform { includeTags 'e2e' }
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+        exceptionFormat 'full'
+    }
+    systemProperty 'ghidra.home', ghidraHome
+    systemProperty 'parity.fixtures', "${projectDir}/../testdata/parity"
+}
+
+shadowJar {
+    archiveBaseName = 'ghidra-bridge'
+    archiveClassifier = ''
+    archiveVersion = project.version
+    manifest {
+        attributes 'Main-Class': 'com.ghidra_svr.bridge.BridgeMain'
+    }
+    // GSON bundled without relocation — Ghidra 12 ships its own GSON at a compatible
+    // version so a classpath clash is unlikely; revisit if runtime errors appear.
+}
+
+build.dependsOn shadowJar

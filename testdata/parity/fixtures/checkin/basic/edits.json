@@ -1,0 +1,19 @@
+{
+  "_comment": "Human-readable description of the BN-side edits CanonicalParityTest.cpp performs after importing baseline.json. The test code is authoritative; keep both in sync.",
+  "edits": [
+    {"action": "rename_symbol",   "addr": "0x400000", "from": "entry_ret", "to": "main_entry"},
+    {"action": "new_symbol",      "addr": "0x400110", "name": "new_label", "kind": "data"},
+    {"action": "edit_comment",    "addr": "0x400010", "text": "updated size note"},
+    {"action": "new_comment",     "addr": "0x400020", "text": "fresh note"},
+    {"action": "update_struct",   "name": "GPoint", "change": "rename member y -> height"},
+    {"action": "add_struct",      "name": "BnStruct", "members": [
+        {"name": "a", "offset": 0, "type": "int32_t"},
+        {"name": "b", "offset": 4, "type": "int32_t"}]},
+    {"action": "add_bookmark",    "addr": "0x400100", "type": "Note", "category": "new", "comment": "added"},
+    {"action": "delete_bookmark", "addr": "0x400120"},
+    {"action": "add_data_item",   "addr": "0x400110", "type": "BnStruct"},
+    {"action": "delete_data_item","addr": "0x400100"},
+    {"action": "rename_equate",   "id": 42, "from": "MAX_SIZE", "to": "BUFFER_MAX"},
+    {"action": "set_return_type", "addr": "0x400000", "type": "uint64_t"}
+  ]
+}

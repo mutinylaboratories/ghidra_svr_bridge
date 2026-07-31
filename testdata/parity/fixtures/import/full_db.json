@@ -1,0 +1,46 @@
+{
+  "image_base": "0x400000",
+  "symbols": [
+    {"key": 1, "name": "entry_ret", "addr": "0x400000", "type": 4, "source": 3, "ns": 0},
+    {"key": 2, "name": "calc_size", "addr": "0x400010", "type": 4, "source": 3, "ns": 0},
+    {"key": 3, "name": "frame_fn",  "addr": "0x400020", "type": 4, "source": 3, "ns": 0},
+    {"key": 4, "name": "g_point",   "addr": "0x400100", "type": 0, "source": 3, "ns": 0},
+    {"key": 5, "name": "g_count",   "addr": "0x400110", "type": 0, "source": 3, "ns": 0}
+  ],
+  "comments": [
+    {"addr": "0x400010", "key": "0x400010", "eol": "returns the size"},
+    {"addr": "0x400020", "key": "0x400020", "pre": "frame setup"},
+    {"addr": "0x400000", "plate": "entry point"}
+  ],
+  "func_flags": [
+    {"key": 1, "thunk": false, "no_ret": false, "inline": false, "ret_type": "longlong"},
+    {"key": 2, "thunk": false, "no_ret": false, "inline": false}
+  ],
+  "equates": [
+    {"id": 42, "name": "MAX_SIZE", "value": 500,
+     "refs": [{"addr": "0x400010", "op_index": 1}]}
+  ],
+  "bookmarks": [
+    {"type": "Note", "addr": "0x400120", "category": "review", "comment": "check this"}
+  ],
+  "parameters": [],
+  "data_types": [
+    {"id": 100, "kind": "struct", "name": "GPoint", "comment": "", "size": 8,
+     "members": [
+       {"offset": 0, "type_id": 0, "name": "x", "comment": "", "size": 4, "ordinal": 0, "type_name": "int"},
+       {"offset": 4, "type_id": 0, "name": "y", "comment": "", "size": 4, "ordinal": 1, "type_name": "int"}
+     ]},
+    {"id": 101, "kind": "enum", "name": "GColor", "comment": "", "size": 4,
+     "values": [
+       {"name": "RED",  "value": 0, "comment": ""},
+       {"name": "BLUE", "value": 1, "comment": ""}
+     ]},
+    {"id": 102, "kind": "typedef", "name": "gpoint_t",
+     "underlying_type_id": 100, "underlying_name": "GPoint", "size": 8}
+  ],
+  "data_items": [
+    {"addr": "0x400100", "type_id": 100}
+  ],
+  "memory_blocks": [],
+  "xref_stats": {"from_count": 0, "to_count": 0}
+}

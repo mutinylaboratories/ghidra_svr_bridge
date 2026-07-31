@@ -1,0 +1,239 @@
+# Release on push to main.
+#
+# version  — reads v<version> from bridge/build.gradle; if that release
+#            already exists everything downstream skips, so routine pushes
+#            to main stay green. Cutting a release = bump the version and
+#            merge to main.
+# plugins  — builds the Binary Ninja plugin for windows/linux/macos against
+#            the latest STABLE binaryninja-api, without a BN install or
+#            license (the Vector35/sample_plugin_cpp approach: core linker
+#            stubs via -DBN_ALLOW_STUBS=ON, UI import-lib stub on Windows /
+#            dynamic lookup elsewhere; symbols resolve against the real
+#            libraries inside the BN process at load time).
+# release  — builds + tests the bridge jar against the pinned Ghidra release
+#            (release is gated on green tests), assembles the assets, and
+#            publishes the GitHub release:
+#              ghidra-bridge-<version>.jar
+#              ghidra-bridge-server-package-v*.zip  (unzip next to ghidraSvr)
+#              binja-ghidra-plugin-v*-{windows-x64,linux-x64,macos-universal}.zip
+
+name: release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+      exists: ${{ steps.ver.outputs.exists }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read version and check for existing release
+        id: ver
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(sed -nE "s/^version *= *'([^']+)'.*/\1/p" bridge/build.gradle)
+          if [[ -z "$version" ]]; then
+            echo "could not read version from bridge/build.gradle"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if gh release view "v$version" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::notice::Release v$version already exists — bump the version in bridge/build.gradle to cut a new release. Skipping."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  plugins:
+    needs: version
+    if: needs.version.outputs.exists == 'false'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, artifact: windows-x64 }
+          - { os: ubuntu-latest,  artifact: linux-x64 }
+          - { os: macos-latest,   artifact: macos-universal }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve latest stable binaryninja-api commit
+        id: bnapi
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=$(gh api repos/Vector35/binaryninja-api/releases/latest --jq .tag_name)
+          echo "stable release tag: $tag"
+          sha=$(gh api "repos/Vector35/binaryninja-api/commits/$tag" --jq .sha)
+          if [[ ! "$sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "could not resolve the latest stable commit (got '$sha')"
+            exit 1
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      # Must not be NEWER than the Qt Binary Ninja ships (6.10.x), or the
+      # plugin's Qt imports won't resolve when BN loads it.
+      - name: Install Qt 6
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.10.*'
+          cache: true
+
+      - name: Configure
+        shell: bash
+        run: |
+          extra=""
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            extra="-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64"
+          fi
+          mkdir -p "$RUNNER_TEMP/ghidra-none"
+          cmake -B plugin/build -S plugin \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBN_API_COMMIT_OVERRIDE=${{ steps.bnapi.outputs.sha }} \
+            -DBN_ALLOW_STUBS=ON \
+            -DGHIDRA_HOME="$RUNNER_TEMP/ghidra-none" \
+            -DQt6_DIR="$QT_ROOT_DIR/lib/cmake/Qt6" \
+            $extra
+
+      - name: Build plugin
+        shell: bash
+        run: cmake --build plugin/build --config Release --target binja-ghidra
+
+      - name: Upload plugin artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: plugin-${{ matrix.artifact }}
+          path: |
+            plugin/build/binja-ghidra.dll
+            plugin/build/Release/binja-ghidra.dll
+            plugin/build/libbinja-ghidra.dylib
+            plugin/build/libbinja-ghidra.so
+          if-no-files-found: error
+
+  release:
+    needs: [version, plugins]
+    if: needs.version.outputs.exists == 'false'
+    runs-on: ubuntu-latest
+    env:
+      # The Ghidra release the bridge targets — keep in sync with what your
+      # Ghidra Server runs. Newer releases change server-side APIs.
+      GHIDRA_TAG: Ghidra_12.0.4_build
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Resolve pinned Ghidra release
+        id: ghidra
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          url=$(gh api "repos/NationalSecurityAgency/ghidra/releases/tags/$GHIDRA_TAG" \
+                  --jq '[.assets[] | select(.name | endswith(".zip"))][0].browser_download_url')
+          echo "release: $GHIDRA_TAG ($url)"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Ghidra
+        id: ghidra-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/ghidra
+          key: ghidra-${{ env.GHIDRA_TAG }}
+
+      - name: Download Ghidra
+        if: steps.ghidra-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/ghidra
+          curl -fsSL -o /tmp/ghidra.zip "${{ steps.ghidra.outputs.url }}"
+          unzip -q /tmp/ghidra.zip -d ~/ghidra
+          rm /tmp/ghidra.zip
+
+      - name: Build and test bridge
+        run: |
+          home=$(ls -d ~/ghidra/ghidra_*_PUBLIC | head -1)
+          chmod +x bridge/gradlew
+          bridge/gradlew -p bridge build -PghidraHome="$home" --console=plain
+
+      - name: Assemble server package
+        run: |
+          stage="ghidra-bridge-server-package-v$VERSION"
+          mkdir -p "/tmp/$stage"
+          cp server-package/README.txt server-package/start-bridge.bat server-package/start-bridge.sh "/tmp/$stage/"
+          cp "bridge/build/libs/ghidra-bridge-$VERSION.jar" "/tmp/$stage/"
+          (cd /tmp && zip -qr "$stage.zip" "$stage")
+          mv "/tmp/$stage.zip" .
+
+      - name: Download plugin artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: plugin-*
+          path: /tmp/plugins
+
+      - name: Assemble plugin packages
+        run: |
+          jar="bridge/build/libs/ghidra-bridge-$VERSION.jar"
+          for target in windows-x64 linux-x64 macos-universal; do
+            stage="binja-ghidra-plugin-v$VERSION-$target"
+            mkdir -p "/tmp/$stage"
+            # Artifact may preserve a Release/ subdir (Windows VS generator).
+            find "/tmp/plugins/plugin-$target" -type f \
+              \( -name '*.dll' -o -name '*.dylib' -o -name '*.so' \) \
+              -exec cp {} "/tmp/$stage/" \;
+            cp "$jar" "/tmp/$stage/"
+            case "$target" in
+              windows-x64)     dir='%APPDATA%\Binary Ninja\plugins' ;;
+              macos-universal) dir='~/Library/Application Support/Binary Ninja/plugins' ;;
+              linux-x64)       dir='~/.binaryninja/plugins' ;;
+            esac
+            cat > "/tmp/$stage/INSTALL.txt" <<EOF
+          binja-ghidra v$VERSION — Binary Ninja plugin ($target)
+
+          Built against the latest STABLE Binary Ninja API at release time.
+          Symbols resolve inside the Binary Ninja process at load time, so this
+          binary requires a matching stable Binary Ninja install to load.
+
+          Install: copy the plugin library and ghidra-bridge-$VERSION.jar into
+          your Binary Ninja user plugins folder:
+            $dir
+
+          The jar is only needed for local bridge mode; in remote mode the
+          bridge runs on the Ghidra server (see the server package asset).
+          EOF
+            (cd /tmp && zip -qr "$stage.zip" "$stage")
+            mv "/tmp/$stage.zip" .
+          done
+          ls -l binja-ghidra-plugin-*.zip
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v$VERSION" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "binja-ghidra v$VERSION" \
+            --generate-notes \
+            --notes "Assets: the Binary Ninja plugin per platform (built against the latest stable BN API), the bridge jar, and the Ghidra-server deployment package." \
+            "bridge/build/libs/ghidra-bridge-$VERSION.jar" \
+            "ghidra-bridge-server-package-v$VERSION.zip" \
+            binja-ghidra-plugin-v"$VERSION"-*.zip
